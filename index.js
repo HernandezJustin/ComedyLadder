@@ -40,15 +40,21 @@ bot.on("message", function(message) {
             })
             break;
         case "!points":
-            getPoints(param).then((points) => {
+        	if(!param) return;
+        	var uid = param.substring(2,20);
+            getPoints(uid).then((points) => {
                 if (points > -1) {
                     message.channel.send(param + " has " + points + " points");
                 }
+            }).catch((points) => {
+            	message.channel.send(points);
             })
             break;
         case "!haha":
-            givePoint(param).then((msg) => {
-                message.channel.send(message.author.username + msg);
+        	if(!param) return;
+        	var uid = param.substring(2,20);
+            givePoint(uid).then((msg) => {
+                message.channel.send(message.author.username + msg + param);
             }).catch((msg) => {
                 message.channel.send(msg);
             })
@@ -125,11 +131,11 @@ function resultEmpty(result) {
     return Object.keys(result).length === 0;
 }
 
-function getPoints(username) {
+function getPoints(userid) {
     return new Promise((resolve, reject) => {
         var GUILD = bot.guilds.values().next().value;
 
-        var sql = "SELECT points, user_name FROM users WHERE user_name=" + "'" + username + "'";
+        var sql = "SELECT points, user_name FROM users WHERE user_id=" + "'" + userid + "'";
         db.query(sql, function (err, result) {
             if (err) throw err;
             if (!resultEmpty(result)) {
@@ -143,20 +149,21 @@ function getPoints(username) {
     });   
 }
 
-function givePoint(username) {
+function givePoint(userid) {
     return new Promise((resolve, reject) => {
-        var sql = "SELECT points FROM users WHERE user_name=" + "'" + username + "'";
+        var sql = "SELECT points FROM users WHERE user_id=" + "'" + userid + "'" ;
+        console.log(sql);
         db.query(sql, function (err, result) {
             if (err) throw err;
             if (!resultEmpty(result)) {
                 const newPoints = result[0].points += 1;
-                sql = "UPDATE users SET points=" + newPoints.toString() + " WHERE user_name=" + "'" + username + "'";
+                sql = "UPDATE users SET points=" + newPoints.toString() + " WHERE user_id=" + "'" + userid + "'";
                 db.query(sql, function (err, result) {
                     if (err) throw err;
-                    resolve(" gave a point to " + username);
-                })
+                    resolve(" gave a point to ");
+                });
             } else {
-                reject("User with the name " + username + " not found")
+                reject("User not found");
             }
         });
     });    
