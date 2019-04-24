@@ -53,6 +53,10 @@ bot.on("message", function(message) {
         case "!haha":
         	if(!param) return;
         	var uid = param.substring(2,20);
+        	if(message.author.id == uid){
+        		message.channel.send("You cant give a point to yourself silly");
+        		return;
+        	}
             givePoint(uid).then((msg) => {
                 message.channel.send(message.author.username + msg + param);
             }).catch((msg) => {
