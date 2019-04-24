@@ -1,0 +1,15 @@
+{
+  "name": "discordcomedy",
+  "version": "1.0.0",
+  "description": "A set of discord commands that shows who's the funniest dude(s)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Justin Hernandez",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^11.3.2",
+    "mysql": "^2.15.0"
+  }
+}
