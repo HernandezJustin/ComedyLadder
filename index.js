@@ -24,7 +24,7 @@ bot.on("message", function(message) {
     if (message.author.equals(bot.user)) return;
 
     var command = message.content.split(" ")[0];
-    var param = message.content.split(" ")[1];
+    var param = message.content.split(" ")[1];	
 
     if (!VALID_CMDS.includes(command)) return;
     var GUILD = bot.guilds.values().next().value;
@@ -57,11 +57,15 @@ bot.on("message", function(message) {
         		message.channel.send("You cant give a point to yourself silly");
         		return;
         	}
-            givePoint(uid).then((msg) => {
-                message.channel.send(message.author.username + msg + param);
-            }).catch((msg) => {
-                message.channel.send(msg);
-            })
+        	canGivePoint(message.author.id).then(() => {
+        		givePoint(message.author.id,uid).then((msg) => {
+                	message.channel.send(message.author.username + msg + param);
+            	}).catch((msg) => {
+                	message.channel.send(msg);
+            	})
+        	}).catch((msg) => {
+        		message.channel.send(msg);
+        	})
             break;
         case "!funniest":
             getFunniestMember().then((members) => {
@@ -74,9 +78,7 @@ bot.on("message", function(message) {
             })
             break;
         case "!help":
-            //printCommands();
             msg = printCommands();
-            console.log(msg);
             message.channel.send(msg);
             break;
             
@@ -153,7 +155,7 @@ function getPoints(userid) {
     });   
 }
 
-function givePoint(userid) {
+function givePoint(authorid,userid) {
     return new Promise((resolve, reject) => {
         var sql = "SELECT points FROM users WHERE user_id=" + "'" + userid + "'" ;
         console.log(sql);
@@ -164,6 +166,7 @@ function givePoint(userid) {
                 sql = "UPDATE users SET points=" + newPoints.toString() + " WHERE user_id=" + "'" + userid + "'";
                 db.query(sql, function (err, result) {
                     if (err) throw err;
+                    updateTime(authorid);
                     resolve(" gave a point to ");
                 });
             } else {
@@ -171,6 +174,23 @@ function givePoint(userid) {
             }
         });
     });    
+}
+
+function canGivePoint(uid){
+	return new Promise ((resolve, reject) => {
+		var sql = `SELECT last_point_given_at FROM users WHERE user_id=${uid}`;
+		console.log(sql);
+		db.query(sql, function(err, result) {
+			if (err) throw err;
+			console.log(result[0].last_point_given_at);
+			console.log(Math.floor(Date.now()/1000));
+			if(result[0].last_point_given_at == null || result[0].last_point_given_at <= Math.floor(Date.now()/1000)){
+				resolve();
+			}
+			var timeLeftToWait = result[0].last_point_given_at - Math.floor(Date.now()/1000);
+			reject("You have to wait another " + timeLeftToWait + " seconds before giving someone a comedy point!");
+		})
+	})
 }
 
 function getFunniestMember() {  
@@ -209,6 +229,16 @@ function printCommands() {
 5. !funniest - Tells you who the comedy king of the server is (Ties between players are recognized)\n
 6. !lb - Displays the server's comedy score leaderboard\n
 7. !help - Brings up a list of available commands for comedy-ladder`;
+}
+
+function updateTime(uid){
+	const delay = 120;
+	return new Promise(function (resolve, reject){
+		var sql = `UPDATE users SET last_point_given_at='${Math.floor(Date.now()/1000) + delay}' WHERE user_id=${uid}`;
+		db.query(sql, function(err, result){
+			if(err) throw err;
+		})
+	})
 }
 
 bot.login(token.token);
