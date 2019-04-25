@@ -3,6 +3,7 @@ const mysql = require("mysql");
 const token = require("./config.js");
 
 const VALID_CMDS = ["!hello", "!test", "!points", "!haha", "!funniest", "!help", "!lb"];
+var TIME_NOW_IN_SECONDS = Math.floor(Date.now()/1000);
 
 var bot = new Discord.Client();
 
@@ -24,10 +25,11 @@ bot.on("message", function(message) {
     if (message.author.equals(bot.user)) return;
 
     var command = message.content.split(" ")[0];
-    var param = message.content.split(" ")[1];	
+    var param = message.content.split(" ")[1];
+    var GUILD = bot.guilds.values().next().value;
 
     if (!VALID_CMDS.includes(command)) return;
-    var GUILD = bot.guilds.values().next().value;
+ 
     switch (command) {
         case "!hello":
             if (param) { message.channel.send("Hello, " + param); }
@@ -42,10 +44,13 @@ bot.on("message", function(message) {
         case "!points":
         	if(!param) return;
         	var uid = param.substring(2,20);
+        	if(!isValidTag(uid)){
+        		message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
+        		return;
+        	}
+
             getPoints(uid).then((points) => {
-                if (points > -1) {
-                    message.channel.send(param + " has " + points + " points");
-                }
+                message.channel.send(param + " has " + points + " points");
             }).catch((points) => {
             	message.channel.send(points);
             })
@@ -57,6 +62,11 @@ bot.on("message", function(message) {
         		message.channel.send("You cant give a point to yourself silly");
         		return;
         	}
+        	if(!isValidTag(uid)){
+        		message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
+        		return;
+        	}
+
         	canGivePoint(message.author.id).then(() => {
         		givePoint(message.author.id,uid).then((msg) => {
                 	message.channel.send(message.author.username + msg + param);
@@ -81,27 +91,26 @@ bot.on("message", function(message) {
             msg = printCommands();
             message.channel.send(msg);
             break;
-            
     }
 });
 
 bot.on("guildMemberAdd", function (member) {
-    var sql = "INSERT INTO users (user_id, user_name, last_point_given_at)" + " VALUES(" + "'" + member.id.toString() + "'" + ", '" + member.user.username.toString() + "', " + null + ")";
+    var sql = `"INSERT INTO users (user_id, user_name, last_point_given_at) VALUES(${member.id.toString()}, ${member.user.username.toString()}, ${null}`;
     db.query(sql, function (err, results) {
         if (err) throw err;
         if (result) {
             console.log("Successful insertion of user into table");
         }
-    })
-})
+    });
+});
 
 bot.on("guildMemberUpdate", function (oldmember, newmember) {
     var sql = `UPDATE users SET user_name=${newmember.user.username} WHERE id=${newmember.id}`
     db.query(sql, function (err, results) {
         if (err) throw err;
         console.log(`Name updated in database: ${oldmember.user.username} has been changed to ${newmember.user.username}`);
-    })
-})
+    });
+});
 
 //CUSTOM FUNCTIONS
 
@@ -113,14 +122,14 @@ function connectToDB() {
 }
 
 function prepUsersTable() {
-    var guildMembers = bot.guilds.values().next().value.members //returns a collection of all members of a discord server
+    let guildMembers = bot.guilds.values().next().value.members //returns a collection of all members of a discord server
     guildMembers.forEach(function (member) {
         //checking if user id exists in db already
         db.query("SELECT id FROM users WHERE user_id=" + member.id.toString(), function (err, result) {
             if (err) throw err;
             //if object is empty
             if (resultEmpty(result)) {
-                var sql = "INSERT INTO users (user_id, user_name, last_point_given_at)" + " VALUES(" + "'" + member.id.toString() + "'" + ", '" + member.user.username.toString() + "', " + null + ")";
+                var sql = `INSERT INTO users (user_id, user_name, last_point_given_at) VALUES (${member.id.toString()},${member.user.username.toString()},${null}`;
                 db.query(sql, function (err, result) {
                     if (err) throw err;
                     if (result) {
@@ -139,17 +148,14 @@ function resultEmpty(result) {
 
 function getPoints(userid) {
     return new Promise((resolve, reject) => {
-        var GUILD = bot.guilds.values().next().value;
-
-        var sql = "SELECT points, user_name FROM users WHERE user_id=" + "'" + userid + "'";
+    	if(userid == ""){userid = 0;}
+        let sql = `SELECT points, user_name FROM users WHERE user_id=${userid}`;
         db.query(sql, function (err, result) {
             if (err) throw err;
             if (!resultEmpty(result)) {
-                console.log(result[0].user_name + " has " + result[0].points + " points");
                 resolve(result[0].points);
             } else {
-                console.log("User not found.")
-                resolve(-1);
+                reject("User not found");
             }
         });
     });   
@@ -157,13 +163,12 @@ function getPoints(userid) {
 
 function givePoint(authorid,userid) {
     return new Promise((resolve, reject) => {
-        var sql = "SELECT points FROM users WHERE user_id=" + "'" + userid + "'" ;
-        console.log(sql);
+        let sql = `SELECT points FROM users WHERE user_id=${userid}`;
         db.query(sql, function (err, result) {
             if (err) throw err;
             if (!resultEmpty(result)) {
-                const newPoints = result[0].points += 1;
-                sql = "UPDATE users SET points=" + newPoints.toString() + " WHERE user_id=" + "'" + userid + "'";
+                let newPoints = result[0].points += 1;
+                sql = `UPDATE users SET points=${newPoints.toString()} WHERE user_id=${userid}`;
                 db.query(sql, function (err, result) {
                     if (err) throw err;
                     updateTime(authorid);
@@ -178,30 +183,28 @@ function givePoint(authorid,userid) {
 
 function canGivePoint(uid){
 	return new Promise ((resolve, reject) => {
-		var sql = `SELECT last_point_given_at FROM users WHERE user_id=${uid}`;
-		console.log(sql);
+		TIME_NOW_IN_SECONDS = Math.floor(Date.now()/1000);
+		let sql = `SELECT last_point_given_at FROM users WHERE user_id=${uid}`;
 		db.query(sql, function(err, result) {
 			if (err) throw err;
-			console.log(result[0].last_point_given_at);
-			console.log(Math.floor(Date.now()/1000));
-			if(result[0].last_point_given_at == null || result[0].last_point_given_at <= Math.floor(Date.now()/1000)){
+			if(result[0].last_point_given_at == null || result[0].last_point_given_at <= TIME_NOW_IN_SECONDS){
 				resolve();
 			}
-			var timeLeftToWait = result[0].last_point_given_at - Math.floor(Date.now()/1000);
+			let timeLeftToWait = result[0].last_point_given_at - TIME_NOW_IN_SECONDS;
 			reject("You have to wait another " + timeLeftToWait + " seconds before giving someone a comedy point!");
-		})
-	})
+		});
+	});
 }
 
 function getFunniestMember() {  
     return new Promise((resolve, reject) => {
-        var members = [];
-        var sql = `SELECT user_name, points FROM users WHERE points = (SELECT MAX(points) FROM users)`;
+        let members = [];
+        let sql = `SELECT user_name, points FROM users WHERE points = (SELECT MAX(points) FROM users)`;
         db.query(sql, function (err, result) {
             if (err) throw err;
             result.forEach(function (result) {
                 members.push(result.user_name); 
-            })
+            });
             resolve(members);
         });
     });    
@@ -209,8 +212,8 @@ function getFunniestMember() {
 
 function getAllMemberScores() {
     return new Promise(function (resolve, reject) {
-        var member_rows = [];
-        var sql = `SELECT user_name, points FROM users ORDER BY points DESC`;
+        let member_rows = [];
+        let sql = `SELECT user_name, points FROM users ORDER BY points DESC`;
         db.query(sql, function (err, results) {
             if (err) throw err;
             results.forEach((member) => {
@@ -232,13 +235,19 @@ function printCommands() {
 }
 
 function updateTime(uid){
-	const delay = 120;
+	let delay = 120;
+	TIME_NOW_IN_SECONDS = Math.floor(Date.now()/1000);
 	return new Promise(function (resolve, reject){
-		var sql = `UPDATE users SET last_point_given_at='${Math.floor(Date.now()/1000) + delay}' WHERE user_id=${uid}`;
+		let sql = `UPDATE users SET last_point_given_at='${TIME_NOW_IN_SECONDS + delay}' WHERE user_id=${uid}`;
 		db.query(sql, function(err, result){
 			if(err) throw err;
-		})
-	})
+		});
+	});
+}
+
+function isValidTag(tag){
+	regex = new RegExp("^[0-9]{18}$");
+	return regex.test(tag);
 }
 
 bot.login(token.token);
