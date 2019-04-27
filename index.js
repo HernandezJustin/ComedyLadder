@@ -27,6 +27,7 @@ bot.on("message", function(message) {
     var command = message.content.split(" ")[0];
     var param = message.content.split(" ")[1];
     var GUILD = bot.guilds.values().next().value;
+    let regexIDmatch = /[0-9]{18}/;
 
     if (!VALID_CMDS.includes(command)) return;
  
@@ -43,13 +44,10 @@ bot.on("message", function(message) {
             break;
         case "!points":
         	if(!param) return;
-        	var uid = param.substring(3, 21);
-        	if(!isValidTag(uid)){
-        		uid = param.substring(2,20);
-                if(!isValidTag(uid)){
-                    message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
-                    return;
-                }
+        	var uid = param.match(regexIDmatch);
+        	if(uid == null){
+        		message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
+                return;
         	}
 
             getPoints(uid).then((points) => {
@@ -60,17 +58,14 @@ bot.on("message", function(message) {
             break;
         case "!haha":
         	if(!param) return;
-        	var uid = param.substring(3,21);
+        	var uid = param.match(regexIDmatch);
+        	if(uid == null){
+        		message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
+                return;
+        	}
         	if(message.author.id == uid){
         		message.channel.send("You cant give a point to yourself silly");
         		return;
-        	}
-        	if(!isValidTag(uid)){
-        		uid = param.substring(2,20);
-                if(!isValidTag(uid)){
-                    message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
-                    return;
-                }
         	}
 
         	canGivePoint(message.author.id).then(() => {
@@ -135,7 +130,8 @@ function prepUsersTable() {
             if (err) throw err;
             //if object is empty
             if (resultEmpty(result)) {
-                var sql = `INSERT INTO users (user_id, user_name, last_point_given_at) VALUES (${member.id.toString()},${member.user.username.toString()},${null}`;
+                var sql = `INSERT INTO users (user_id, user_name, last_point_given_at) VALUES (${member.id.toString()},'${member.user.username.toString()}',${null})`;
+                console.log(sql);
                 db.query(sql, function (err, result) {
                     if (err) throw err;
                     if (result) {
