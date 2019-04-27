@@ -38,15 +38,18 @@ bot.on("message", function(message) {
         case "!lb":
             message.channel.send("Comedy Leaderboard: " + GUILD.name);
             getAllMemberScores().then((results) => {
-                message.channel.send(results.join("\n-----------------------------------------\n"));
+                message.channel.send(results.join("\n"));
             })
             break;
         case "!points":
         	if(!param) return;
-        	var uid = param.substring(2,20);
+        	var uid = param.substring(3, 21);
         	if(!isValidTag(uid)){
-        		message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
-        		return;
+        		uid = param.substring(2,20);
+                if(!isValidTag(uid)){
+                    message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
+                    return;
+                }
         	}
 
             getPoints(uid).then((points) => {
@@ -57,14 +60,17 @@ bot.on("message", function(message) {
             break;
         case "!haha":
         	if(!param) return;
-        	var uid = param.substring(2,20);
+        	var uid = param.substring(3,21);
         	if(message.author.id == uid){
         		message.channel.send("You cant give a point to yourself silly");
         		return;
         	}
         	if(!isValidTag(uid)){
-        		message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
-        		return;
+        		uid = param.substring(2,20);
+                if(!isValidTag(uid)){
+                    message.channel.send("User not found or invalid format. Type !haha @<discord_handle>");
+                    return;
+                }
         	}
 
         	canGivePoint(message.author.id).then(() => {
@@ -216,8 +222,12 @@ function getAllMemberScores() {
         let sql = `SELECT user_name, points FROM users ORDER BY points DESC`;
         db.query(sql, function (err, results) {
             if (err) throw err;
+            var i = 0;
             results.forEach((member) => {
-                member_rows.push(`${member.user_name} - ${member.points} points`)
+                if (i < 10) {
+                    member_rows.push(`${i+1}. ${member.user_name} - ${member.points} points`)
+                }
+                i++;
             });
             resolve(member_rows);
         });
